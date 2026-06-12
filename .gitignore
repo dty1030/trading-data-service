@@ -1,0 +1,13 @@
+# Python 虚拟环境:机器本地的依赖副本,永不入库(靠 requirements.txt 重建)
+.venv/
+
+# Python 字节码缓存
+__pycache__/
+*.pyc
+
+# IDE 配置
+.idea/
+
+# 网盘同步临时文件
+.tmp.drivedownload/
+.tmp.driveupload/
