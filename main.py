@@ -1,9 +1,12 @@
 import os
+
+from strategy import strategy_signals
+
 os.environ["NO_PROXY"] ="gtimg.cn,qq.com,sina.com.cn,sinajs.cn,eastmoney.com"
 import akshare as ak
 from fastapi import FastAPI
 from backtest import backtest_metrics
-
+from market_snapshot import market_snapshot
 app = FastAPI()  #造一个web应用对象
 
 @app.get("/indicators")
@@ -56,3 +59,12 @@ def news(symbol: str, name: str):
         items.append({"来源": "东财快讯", "错误":
             str(e)[:50]})
     return items
+
+
+@app.get("/strategy")
+def strategy(symbol: str):
+    return strategy_signals(symbol)
+
+@app.get("/market-snapshot")
+def market_snapshot_api(symbol: str ="sh600519"):
+      return market_snapshot(symbol)
