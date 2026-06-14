@@ -7,6 +7,7 @@ import akshare as ak
 from fastapi import FastAPI
 from backtest import backtest_metrics
 from market_snapshot import market_snapshot
+from technical_facts import technical_facts
 app = FastAPI()  #造一个web应用对象
 
 @app.get("/indicators")
@@ -68,3 +69,7 @@ def strategy(symbol: str):
 @app.get("/market-snapshot")
 def market_snapshot_api(symbol: str ="sh600519"):
       return market_snapshot(symbol)
+
+@app.get("/technical-facts")
+def technical_facts_api(symbol: str ="sh600519"):
+      return technical_facts(symbol)
