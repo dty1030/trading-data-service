@@ -1,23 +1,26 @@
-import os
 
 from strategy import strategy_signals
 
-os.environ["NO_PROXY"] ="gtimg.cn,qq.com,sina.com.cn,sinajs.cn,eastmoney.com"
 import akshare as ak
 from fastapi import FastAPI
 from backtest import backtest_metrics
 from market_snapshot import market_snapshot
 from technical_facts import technical_facts
+from indicators import getIndicators
+from fastapi import Query
+from typing import List, Optional
+
 app = FastAPI()  #造一个web应用对象
-
+#最新价、今开、最高、最低、成交量、成交额、涨跌幅...
 @app.get("/indicators")
-def indicators(symbol: str = "sh600519"):
-    df = ak.stock_zh_a_hist_tx(symbol= symbol)
-    df["MA5"] = df["close"].rolling(window=5).mean()
-    df["pct_chg"] = df["close"].pct_change() * 100
-
-    result = df[["date", "close", "MA5", "pct_chg"]].tail(10).to_dict(orient="records")
-    return result
+def indicators(
+        symbol: str = "sh600519",
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        ma: List[int] = Query(default=[5, 10, 20]),
+        limit: int = 10
+):
+    return getIndicators(symbol, start_date, end_date, ma, limit)
 
 
 @app.get("/backtest")
@@ -65,7 +68,7 @@ def news(symbol: str, name: str):
 @app.get("/strategy")
 def strategy(symbol: str):
     return strategy_signals(symbol)
-
+#实时行情, 包含  最新价， 涨跌幅， 成交量， 成交额， 今开， 最高， 最低， 时间戳
 @app.get("/market-snapshot")
 def market_snapshot_api(symbol: str ="sh600519"):
       return market_snapshot(symbol)
@@ -73,3 +76,5 @@ def market_snapshot_api(symbol: str ="sh600519"):
 @app.get("/technical-facts")
 def technical_facts_api(symbol: str ="sh600519"):
       return technical_facts(symbol)
+
+
