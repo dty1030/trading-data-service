@@ -1,13 +1,12 @@
 import os
-
-os.environ["NO_PROXY"] = "gtimg.cn,qq.com,sina.com.cn, sinajs.cn, eastmoney.com"
-import akshare as ak
+from getStockData import get_kline
 
 
 def strategy_signals(symbol: str):
+
     double_volume_threshold = 1.79
 
-    df = ak.stock_zh_a_hist_tx(symbol)
+    df = get_kline(symbol)
     df["阳线"] = df["close"] > df["open"]
     df["阴线"] = df["close"] < df["open"]
     df["量比"] = df["amount"] / df["amount"].shift(1)
@@ -42,6 +41,8 @@ def strategy_signals(symbol: str):
         "今日阳线": bool(last["阳线"]),
         "今日量比": round(float(last["量比"]), 2),
         "今日倍量柱": bool(last["倍量柱"]),
+        "今日涨跌幅": round(float(last["pctChg"]), 2),
+        "今日换手率": round(float(last["turn"]), 2),  # 顺手把白送的换手率也加上
         "倍量柱阈值": double_volume_threshold,
         "是否明显放量": bool(is_double_volume),
         "是否温和放量": bool(is_mild_volume_expansion),

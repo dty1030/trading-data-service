@@ -77,4 +77,23 @@ def market_snapshot_api(symbol: str ="sh600519"):
 def technical_facts_api(symbol: str ="sh600519"):
       return technical_facts(symbol)
 
-
+WATCHLIST = ["sh688268", "sz300505", "sz300265", "sh688411"]
+@app.get("/screen")
+def screen(
+        require_double_volume: bool = False,
+        # 要不要求今日倍量柱
+        min_pct_chg: float | None = None,
+        # 涨幅下限(None=不限)
+):
+    hits = []
+    for code in WATCHLIST:
+        try:
+            sig = strategy_signals(code)
+            if require_double_volume and not sig["今日倍量柱"]:
+                continue  # 不满足"要倍量柱" → 跳过
+            if min_pct_chg is not None and sig["今日涨幅"] < min_pct_chg:
+                continue  # 涨幅不够 → 跳过
+            hits.append(sig)
+        except Exception as e:
+            print(f"选股失败 {code}: {e}")
+    return {"命中数": len(hits), "命中清单": hits}  
