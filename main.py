@@ -9,7 +9,7 @@ from technical_facts import technical_facts
 from indicators import getIndicators
 from fastapi import Query
 from typing import List, Optional
-
+from getStockData import getIndices, get_kline
 app = FastAPI()  #造一个web应用对象
 #最新价、今开、最高、最低、成交量、成交额、涨跌幅...
 @app.get("/indicators")
@@ -97,3 +97,8 @@ def screen(
         except Exception as e:
             print(f"选股失败 {code}: {e}")
     return {"命中数": len(hits), "命中清单": hits}  
+
+
+@app.get("/indices")
+def indices():
+    return getIndices()
