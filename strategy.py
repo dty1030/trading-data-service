@@ -49,6 +49,6 @@ def strategy_signals(symbol: str):
         "是否缩量": bool(is_volume_shrinking),
         "成交量情况": volume_conclusion,
         "连续阴线天数": int(streak),
-        "触发原则1_倍量柱重点关注": bool(last["倍量柱"]),
-        "触发原则2_连续4阴谨慎看多": streak >= 4,
+        #"触发原则1_倍量柱重点关注": bool(last["倍量柱"]),
+        #"触发原则2_连续4阴谨慎看多": streak >= 4,
     }
