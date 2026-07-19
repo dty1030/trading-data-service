@@ -9,7 +9,8 @@ from technical_facts import technical_facts
 from indicators import getIndicators
 from fastapi import Query
 from typing import List, Optional
-from getStockData import getIndices, get_kline
+from getStockData import getIndices, get_kline, get_company_fundamentals
+
 app = FastAPI()  #造一个web应用对象
 #最新价、今开、最高、最低、成交量、成交额、涨跌幅...
 @app.get("/indicators")
@@ -102,3 +103,20 @@ def screen(
 @app.get("/indices")
 def indices():
     return getIndices()
+
+
+@app.get("/fundamentals")
+def fundamentals_api(
+    symbol: str,
+    year: int,
+    quarter: int,
+    start_date: str,
+    end_date: str
+):
+    return get_company_fundamentals(
+        symbol,
+        year,
+        quarter,
+        start_date,
+        end_date
+    )

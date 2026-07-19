@@ -1,9 +1,30 @@
 import baostock as bs
 import pandas as pd
 import os
+
 os.environ["NO_PROXY"] = "sina.com.cn,sinajs.cn,sina.com"
 import akshare as ak
 from datetime import date, timedelta
+
+
+def normalize_baostock_code(symbol: str) -> str:
+    normalized = symbol.strip().lower().replace(".", "")
+    code = normalized[-6:]
+    prefix = normalized[:-6]
+    if prefix not in ("", "sh", "sz"):
+        raise ValueError("股票代码前缀错误：" + symbol)
+    if len(code) != 6 or not code.isdigit():
+        raise ValueError("股票代码格式错误：" + symbol)
+    if code.startswith(("60", "68")):
+        market = "sh"
+    elif code.startswith(("00", "30", "20")):
+        market = "sz"
+    else:
+        raise ValueError("暂不支持的股票代码：" + symbol)
+    if prefix and prefix != market:
+        raise ValueError("股票代码与市场前缀不匹配：" + symbol)
+
+    return f"{market}.{code}"
 
 
 def get_kline(
@@ -36,15 +57,14 @@ def get_kline(
     return df
 
 
-#用来获取行业/概念/板块指数
+# 用来获取行业/概念/板块指数
 def getIndices():
-
-    #Sina Data Source
+    # Sina Data Source
     df = ak.stock_zh_index_spot_sina()
     df.columns = ["code", "name", "price", "chg", "pct", "open", "high", "low", "preclose", "vol", "amount"][
         :len(df.columns)]
 
-    watchList = ["sh000001","sh000688","sh000680","sz399389","sh000682"]
+    watchList = ["sh000001", "sh000688", "sh000680", "sz399389", "sh000682"]
     output = []
     for code in watchList:
         row = df[df["code"] == code]
@@ -60,30 +80,183 @@ def getIndices():
         })
     return output
 
-    # 获取指数(综合指数、规模指数、一级行业指数、二级行业指数、策略指数、成长指数、价值指数、主题指数)K线数据
-    # 综合指数，例如：sh.000001 上证指数，sz.399106 深证综指 等；
-    # 规模指数，例如：sh.000016 上证50，sh.000300 沪深300，sh.000905 中证500，sz.399001 深证成指等；
-    # 一级行业指数，例如：sh.000037 上证医药，sz.399433 国证交运 等；
-    # 二级行业指数，例如：sh.000952 300地产，sz.399951 300银行 等；
-    # 策略指数，例如：sh.000050 50等权，sh.000982 500等权 等；
-    # 成长指数，例如：sz.399376 小盘成长 等；
-    # 价值指数，例如：sh.000029 180价值 等；
-    # 主题指数，例如：sh.000015 红利指数，sh.000063 上证周期 等；
 
-    # 详细指标参数，参见“历史行情指标参数”章节；“周月线”参数与“日线”参数不同。
-    # 周月线指标：date,code,open,high,low,close,volume,amount,adjustflag,turn,pctChg
-    rs = bs.query_history_k_data_plus("sh.000001",
-                                      "date,code,open,high,low,close,preclose,volume,amount,pctChg",
-                                      start_date='2017-01-01', end_date='2017-06-30', frequency="d")
-    print('query_history_k_data_plus respond error_code:' + rs.error_code)
-    print('query_history_k_data_plus respond  error_msg:' + rs.error_msg)
-
-    # 打印结果集
-
-
-    # 登出系统
-    bs.logout()
-#查新浪历史行情
+# 查新浪历史行情
 def get_prev_vol(code):
-    h = ak.stock_zh_index_daily(symbol=code)   # 新浪历史, 有 volume 列
-    return float(h.iloc[-2]["volume"])         # 倒数第二行=昨天
+    h = ak.stock_zh_index_daily(symbol=code)  # 新浪历史, 有 volume 列
+    return float(h.iloc[-2]["volume"])  # 倒数第二行=昨天
+
+
+def query_baostock_records(query_func, **kwargs):
+    lg = bs.login()
+    if lg.error_code != "0":
+        raise RuntimeError("BaoStock 登录失败：" + lg.error_msg)
+    try:
+        rs = query_func(**kwargs)
+        if rs.error_code != "0":
+            raise RuntimeError("BaoStock 查询失败：" + rs.error_msg)
+
+        rows = []
+        while rs.next():
+            rows.append(rs.get_row_data())
+
+        df = pd.DataFrame(rows, columns=rs.fields)
+        return df.to_dict(orient="records")
+    finally:
+        bs.logout()
+
+
+def collect_baostock_records(query_func, **kwargs):
+    rs = query_func(**kwargs)
+    if rs.error_code != "0":
+        raise RuntimeError("BaoStock 查询失败：" + rs.error_msg)
+
+    rows = []
+    while rs.next():
+        rows.append(rs.get_row_data())
+
+    df = pd.DataFrame(rows, columns=rs.fields)
+    return df.to_dict(orient="records")
+
+
+def get_company_fundamentals(
+        symbol: str,
+        year: int,
+        quarter: int,
+        start_date: str,
+        end_date: str
+):
+    code = normalize_baostock_code(symbol)
+
+    lg = bs.login()
+    if lg.error_code != "0":
+        raise RuntimeError("BaoStock 登录失败：" + lg.error_msg)
+
+    try:
+        return {
+            "code": code,
+            "year": year,
+            "quarter": quarter,
+            "profit": collect_baostock_records(
+                bs.query_profit_data,
+                code=code,
+                year=year,
+                quarter=quarter
+            ),
+            "growth": collect_baostock_records(
+                bs.query_growth_data,
+                code=code,
+                year=year,
+                quarter=quarter
+            ),
+            "operation": collect_baostock_records(
+                bs.query_operation_data,
+                code=code,
+                year=year,
+                quarter=quarter
+            ),
+            "balance": collect_baostock_records(
+                bs.query_balance_data,
+                code=code,
+                year=year,
+                quarter=quarter
+            ),
+            "cashFlow": collect_baostock_records(
+                bs.query_cash_flow_data,
+                code=code,
+                year=year,
+                quarter=quarter
+            ),
+            "dupont": collect_baostock_records(
+                bs.query_dupont_data,
+                code=code,
+                year=year,
+                quarter=quarter
+            ),
+            "forecast": collect_baostock_records(
+                bs.query_forecast_report,
+                code=code,
+                start_date=start_date,
+                end_date=end_date
+            ),
+            "performanceExpress": collect_baostock_records(
+                bs.query_performance_express_report,
+                code=code,
+                start_date=start_date,
+                end_date=end_date
+            )
+        }
+    finally:
+        bs.logout()
+
+
+def get_operation(code: str, year: int, quarter: int):
+    return query_baostock_records(
+        bs.query_operation_data,
+        code=code,
+        year=year,
+        quarter=quarter
+    )
+
+
+def get_balance(code: str, year: int, quarter: int):
+    return query_baostock_records(
+        bs.query_balance_data,
+        code=code,
+        year=year,
+        quarter=quarter
+    )
+
+
+def get_cash_flow(code: str, year: int, quarter: int):
+    return query_baostock_records(
+        bs.query_cash_flow_data,
+        code=code,
+        year=year,
+        quarter=quarter
+    )
+
+
+def get_dupont(code: str, year: int, quarter: int):
+    return query_baostock_records(
+        bs.query_dupont_data,
+        code=code,
+        year=year,
+        quarter=quarter
+    )
+
+
+def get_growth(code: str, year: int, quarter: int):
+    return query_baostock_records(
+        bs.query_growth_data,
+        code=code,
+        year=year,
+        quarter=quarter
+    )
+
+
+def get_profit(code: str, year: int, quarter: int):
+    return query_baostock_records(
+        bs.query_profit_data,
+        code=code,
+        year=year,
+        quarter=quarter
+    )
+
+
+def get_forecast_report(code: str, start_date: str, end_date: str):
+    return query_baostock_records(
+        bs.query_forecast_report,
+        code=code,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+
+def get_performance_express_report(code: str, start_date: str, end_date: str):
+    return query_baostock_records(
+        bs.query_performance_express_report,
+        code=code,
+        start_date=start_date,
+        end_date=end_date
+    )
